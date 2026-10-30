@@ -1,8 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { Home, ShoppingBag, UserRound } from 'lucide-react'
+import { Home, ShieldCheck, ShoppingBag, UserRound } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { PRIMARY_ADMIN_EMAIL } from '@/lib/adminConstants'
 
 const tabs = [
   { href: '/game/market', label: 'Market', urdu: 'مارکیٹ', Icon: ShoppingBag },
@@ -11,8 +14,10 @@ const tabs = [
 ]
 
 export default function GameNav() {
-  const pathname = usePathname()
-  return <nav className="game-nav" aria-label="Game navigation">{tabs.map(({ href, label, urdu, Icon }) => {
+  const pathname = usePathname(); const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setIsAdmin(data.user?.email?.toLowerCase() === PRIMARY_ADMIN_EMAIL)) }, [])
+  const visibleTabs = isAdmin ? [...tabs, { href: '/game/admin', label: 'Admin', urdu: 'ایڈمن', Icon: ShieldCheck }] : tabs
+  return <nav className="game-nav" aria-label="Game navigation">{visibleTabs.map(({ href, label, urdu, Icon }) => {
     const active = pathname === href
     return <Link className={active ? 'game-nav-item active' : 'game-nav-item'} href={href} key={href}><Icon size={21} strokeWidth={active ? 2.5 : 1.8} /><span>{label}</span><small>{urdu}</small></Link>
   })}</nav>

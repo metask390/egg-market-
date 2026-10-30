@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { PRIMARY_ADMIN_EMAIL } from '@/lib/adminConstants'
 
 type Mode = 'login' | 'register'
 
@@ -19,10 +20,11 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       if (isRegister) {
         const { data, error: authError } = await supabase.auth.signUp({ email, password })
         if (authError) throw authError
-        if (data.user) { const { error: profileError } = await supabase.from('game_users').insert({ id: data.user.id, wallet: 0, email }); if (profileError && profileError.code !== '23505') throw profileError }
+        if (data.user) { const username = `farmer_${data.user.id.slice(0, 8)}`; const referredBy = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ref') : null; const profile = { id: data.user.id, wallet: 0, email, username, ...(referredBy ? { referred_by: referredBy } : {}) }; const { error: profileError } = await supabase.from('game_users').insert(profile); if (profileError && profileError.code !== '23505') throw profileError }
         setMessage('Account created. Check your email to confirm, then log in. / اکاؤنٹ بن گیا ہے')
       } else {
-        const { error: authError } = await supabase.auth.signInWithPassword({ email, password }); if (authError) throw authError
+        const { data: loginData, error: authError } = await supabase.auth.signInWithPassword({ email, password }); if (authError) throw authError
+        if (loginData.user?.email?.toLowerCase() === PRIMARY_ADMIN_EMAIL) await supabase.from('game_users').update({ role: 'admin' }).eq('id', loginData.user.id)
         router.push('/game/dashboard'); router.refresh()
       }
     } catch (err) { setError(err instanceof Error ? `${err.message} / براہ کرم دوبارہ کوشش کریں` : 'Something went wrong / کچھ غلط ہو گیا') } finally { setLoading(false) }

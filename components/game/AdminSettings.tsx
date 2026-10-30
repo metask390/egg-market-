@@ -1,0 +1,13 @@
+'use client'
+
+import { Save } from 'lucide-react'
+import { FormEvent, useEffect, useState } from 'react'
+import { adminFetch } from '@/lib/adminClient'
+
+type Settings = Record<string, string>
+const fields = [['easypaisa_name', 'EasyPaisa account name'], ['easypaisa_number', 'EasyPaisa number'], ['jazzcash_name', 'JazzCash account name'], ['jazzcash_number', 'JazzCash number'], ['bank_name', 'Bank name'], ['bank_account_name', 'Bank account name'], ['bank_account_number', 'Bank account number']] as const
+export default function AdminSettings() { const [settings, setSettings] = useState<Settings>({}); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('')
+  useEffect(() => { adminFetch('/api/admin/settings').then(data => setSettings(data)).catch(err => setError(err.message)).finally(() => setLoading(false)) }, [])
+  async function submit(e: FormEvent) { e.preventDefault(); setSaving(true); setError(''); setMessage(''); try { await adminFetch('/api/admin/settings', { method: 'POST', body: JSON.stringify(settings) }); setMessage('Payment settings saved. Market now shows the new details.') } catch (err) { setError(err instanceof Error ? err.message : 'Could not save settings') } finally { setSaving(false) } }
+  return <><div className="admin-title"><div><p>PAYMENT CONFIGURATION</p><h1>Payment settings</h1></div></div><p className="admin-description">These payment details are shown to farmers during checkout on the Market page.</p>{error && <div className="error admin-alert">{error}</div>}{message && <div className="success admin-alert">{message}</div>}{loading ? <div className="empty-state">Loading settings…</div> : <form className="settings-form" onSubmit={submit}><div className="settings-section"><h2>Mobile wallets</h2><div className="settings-grid">{fields.slice(0, 4).map(([key, label]) => <div className="field" key={key}><label>{label.toUpperCase()}</label><input value={settings[key] || ''} onChange={e => setSettings({ ...settings, [key]: e.target.value })} placeholder={label} /></div>)}</div></div><div className="settings-section"><h2>Bank transfer</h2><div className="settings-grid">{fields.slice(4).map(([key, label]) => <div className="field" key={key}><label>{label.toUpperCase()}</label><input value={settings[key] || ''} onChange={e => setSettings({ ...settings, [key]: e.target.value })} placeholder={label} /></div>)}</div></div><button className="submit-btn settings-save" disabled={saving}><Save size={17} />{saving ? 'Saving…' : 'Save payment settings'}</button></form>}</>
+}
