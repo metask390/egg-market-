@@ -1,3 +1,6 @@
+import GameShell from '@/components/game/GameShell'
+import FarmClient from '@/components/game/FarmClient'
+
 export default function DashboardPage() {
-  return <main style={{ padding: 40, fontFamily: 'sans-serif' }}><h1>Chicken Farm Dashboard</h1><p>Your farm is getting ready.</p></main>
+  return <GameShell title="My Farm" eyebrow="GOOD MORNING, FARMER · خوش آمدید"><FarmClient /></GameShell>
 }
