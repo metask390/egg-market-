@@ -12,3 +12,5 @@
 
 /* Premium scene balance */
 .reference-hero{height:50vh;min-height:360px}.auth-sheet{min-height:50vh}@media(max-width:380px){.reference-hero{height:50vh;min-height:320px}}
+
+.profile-invested-card{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid #e9eee7;border-radius:18px;padding:15px;margin-bottom:14px}.profile-invested-card span{color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.1em}.profile-invested-card strong{font-family:'Space Grotesk';font-size:20px;color:var(--ink)}

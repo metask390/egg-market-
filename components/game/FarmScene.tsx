@@ -1,28 +1,20 @@
 'use client'
 
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
-import { useRef } from 'react'
+import { ContactShadows, Environment, OrbitControls, useGLTF } from '@react-three/drei'
+import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
-function MiniChicken({ index }: { index: number }) {
-  const ref = useRef<THREE.Group>(null)
-  useFrame(({ clock }) => { if (ref.current) ref.current.position.y = .32 + Math.sin(clock.getElapsedTime() * 1.6 + index) * .025 })
-  const x = ((index % 4) - 1.5) * .82; const z = (Math.floor(index / 4) - .5) * .75
-  return <group ref={ref} position={[x, .32, z]}>
-    <mesh castShadow><sphereGeometry args={[.34, 18, 14]} /><meshStandardMaterial color={index % 2 ? '#fff9ec' : '#f8d887'} /></mesh>
-    <mesh position={[.28, .22, 0]}><sphereGeometry args={[.22, 18, 14]} /><meshStandardMaterial color="#fffdf7" /></mesh>
-    <mesh position={[.5, .2, 0]} rotation={[0, 0, -Math.PI / 2]}><coneGeometry args={[.06, .18, 10]} /><meshStandardMaterial color="#e9a43b" /></mesh>
-    <mesh position={[.33, .43, 0]}><sphereGeometry args={[.055, 10, 10]} /><meshStandardMaterial color="#d95546" /></mesh>
-  </group>
+function FarmChicken({ index, eggReady }: { index: number; eggReady: boolean }) {
+  const { scene } = useGLTF('/chicken.glb'); const model = useMemo(() => scene.clone(true), [scene]); const ref = useRef<THREE.Group>(null)
+  const positions: [number, number, number][] = [[-2.1, .18, .2], [-.7, .18, .65], [.7, .18, .65], [2.1, .18, .2], [-1.7, .18, -1], [0, .18, -1], [1.7, .18, -1], [-1.1, .18, -1.85], [.4, .18, -1.85], [1.8, .18, -1.7]]
+  const [x, y, z] = positions[index % positions.length]
+  useFrame(({ clock }) => { if (ref.current) { const t = clock.getElapsedTime() + index * .7; ref.current.position.y = y + Math.sin(t * 1.35) * .035; ref.current.rotation.y = Math.sin(t * .25) * .06; ref.current.rotation.z = Math.sin(t * .8) * .018 } })
+  model.traverse(object => { if (object instanceof THREE.Mesh) { object.castShadow = true; object.receiveShadow = true } })
+  return <group ref={ref} position={[x, y, z]}><primitive object={model} scale={.72} rotation={[0, Math.PI, 0]} />{eggReady && <mesh position={[0, .12, .38]} scale={[.16, .23, .16]} castShadow><sphereGeometry args={[.45, 24, 18]} /><meshStandardMaterial color="#fff4c9" emissive="#ffd83d" emissiveIntensity={.45} roughness={.28} /></mesh>}</group>
 }
 
-export default function FarmScene({ count }: { count: number }) {
-  return <div className="farm-scene"><Canvas shadows camera={{ position: [0, 4.4, 5.6], fov: 42 }}>
-    <ambientLight intensity={1.7} /><directionalLight position={[3, 6, 3]} intensity={2.4} castShadow />
-    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><circleGeometry args={[3.1, 48]} /><meshStandardMaterial color="#9bc17b" /></mesh>
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .01, 0]}><ringGeometry args={[2.75, 3.1, 48]} /><meshStandardMaterial color="#e8c978" /></mesh>
-    {Array.from({ length: count }, (_, i) => <MiniChicken index={i} key={i} />)}
-    <OrbitControls enableZoom={false} enablePan={false} minPolarAngle={.8} maxPolarAngle={1.35} />
-  </Canvas><div className="farm-scene-caption">{count ? `${count} happy chicken${count === 1 ? '' : 's'} on your farm` : 'Buy your first chicken in Market'}</div></div>
+export default function FarmScene({ count, eggReady = false }: { count: number; eggReady?: boolean }) {
+  const visibleCount = Math.min(Math.max(count, 0), 10)
+  return <div className="farm-scene"><Canvas shadows dpr={[1, 2]} camera={{ position: [0, 4.7, 6.8], fov: 42 }}><ambientLight intensity={1.15} /><directionalLight position={[4, 7, 5]} intensity={2.1} castShadow shadow-mapSize={[1024, 1024]} /><Environment preset="sunset" /><mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><circleGeometry args={[3.4, 64]} /><meshStandardMaterial color="#8d623d" roughness={1} /></mesh><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .01, 0]}><ringGeometry args={[3, 3.4, 64]} /><meshStandardMaterial color="#b17a45" roughness={1} /></mesh>{Array.from({ length: visibleCount }, (_, i) => <FarmChicken index={i} eggReady={eggReady} key={i} />)}<ContactShadows position={[0, .02, 0]} opacity={.34} scale={7} blur={2.6} far={5} /><OrbitControls enableZoom={false} enablePan={false} minPolarAngle={.75} maxPolarAngle={1.35} target={[0, .35, 0]} /></Canvas><div className="farm-scene-caption">{visibleCount ? `${visibleCount} chicken${visibleCount === 1 ? '' : 's'} on your farm` : 'Buy your first chicken in Market'}</div></div>
 }
