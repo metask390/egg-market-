@@ -13,9 +13,9 @@ export default function FarmClient() {
   async function load() {
     setLoading(true); const { data: auth } = await supabase.auth.getUser(); if (!auth.user) { setError('Please log in to view your farm.'); setLoading(false); return }
     const [{ data: userData, error: userError }, { data: owned, error: chickenError }, { data: typeData }] = await Promise.all([
-      supabase.from('game_users').select('*').eq('id', auth.user.id).single(), supabase.from('game_user_chickens').select('*').eq('user_id', auth.user.id), supabase.from('game_chicken_types').select('*')
+      supabase.from('game_users').select('*').eq('user_id', auth.user.id).single(), supabase.from('game_user_chickens').select('*').eq('user_id', auth.user.id), supabase.from('game_chicken_types').select('*')
     ])
-    if (userError) setError(userError.message); if (chickenError) setError(chickenError.message); setUser(userData || { id: auth.user.id, email: auth.user.email, wallet_balance: 0 }); setChickens(owned || []); setTypes(Object.fromEntries((typeData || []).map((item: TypeRow) => [item.id, item]))); setLoading(false)
+    if (userError) setError(userError.message); if (chickenError) setError(chickenError.message); setUser(userData || { user_id: auth.user.id, email: auth.user.email, wallet_balance: 0 }); setChickens(owned || []); setTypes(Object.fromEntries((typeData || []).map((item: TypeRow) => [item.id, item]))); setLoading(false)
   }
   useEffect(() => { load() }, [])
   const balance = Number(user?.wallet_balance ?? user?.wallet ?? 0); const enriched: Array<ChickenRow & { type: TypeRow }> = useMemo(() => chickens.map(chicken => ({ ...chicken, type: types[chicken.chicken_type_id] || {} })), [chickens, types])
@@ -27,7 +27,7 @@ export default function FarmClient() {
       const now = new Date().toISOString(); const amount = reward
       const updates = await Promise.all(available.map(chicken => supabase.from('game_user_chickens').update({ last_collected_at: now }).eq('id', chicken.id)))
       const failed = updates.find(result => result.error); if (failed?.error) throw failed.error
-      const { error: walletError } = await supabase.from('game_users').update({ wallet_balance: balance + amount }).eq('id', user.id); if (walletError) throw walletError
+      const { error: walletError } = await supabase.from('game_users').update({ wallet_balance: balance + amount }).eq('user_id', user.user_id); if (walletError) throw walletError
       setUser({ ...user, wallet_balance: balance + amount }); setChickens(chickens.map(chicken => available.some(item => item.id === chicken.id) ? { ...chicken, last_collected_at: now } : chicken)); setMessage(`+${amount.toLocaleString()} Rs added to your wallet. Keep growing!`)
     } catch (err) { setError(err instanceof Error ? err.message : 'Collection failed') } finally { setCollecting(false) }
   }
@@ -37,6 +37,6 @@ export default function FarmClient() {
     <section className="farm-wallet"><div><span>AVAILABLE BALANCE</span><strong>{balance.toLocaleString()} <small>Rs</small></strong><p>Growing with every egg</p></div><div className="wallet-orb"><Coins /></div></section>
     <FarmScene count={enriched.length} />
     <section className="collection-card"><div className="collection-head"><div><p className="card-kicker">DAILY HARVEST · روزانہ آمدن</p><h2>Egg collection</h2></div><div className="egg-count"><Egg size={18} />{enriched.length} <small>chickens</small></div></div><p className="collection-copy">{available.length ? `${available.length} chicken${available.length === 1 ? '' : 's'} have fresh eggs ready.` : 'Your chickens are resting. Come back after 24 hours.'}</p><button className="collect-btn" disabled={!available.length || !reward || collecting} onClick={collect}><Egg size={19} />{collecting ? 'Collecting…' : available.length ? `Collect ${reward.toLocaleString()} Rs` : 'Eggs collected for today'}</button></section>
-    {!enriched.length && <div className="empty-state compact">Your farm is waiting for its first chicken. <a href="/game/market">Visit Market →</a></div>}
+    {!enriched.length && <div className="empty-state compact">No chickens yet. <a href="/game/market">Visit Market →</a></div>}
   </>
 }

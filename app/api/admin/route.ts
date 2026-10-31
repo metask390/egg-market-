@@ -5,12 +5,12 @@ export async function GET(request: NextRequest) {
   try {
     const { admin } = await requireAdmin(request)
     const [{ count: users }, { count: deposits }, { count: withdrawals }, { data: revenueRows }] = await Promise.all([
-      admin.from('game_users').select('id', { count: 'exact', head: true }),
-      admin.from('game_deposits').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      admin.from('game_withdrawals').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      admin.from('game_deposits').select('amount').eq('status', 'approved')
+      admin.from('game_users').select('user_id', { count: 'exact', head: true }),
+      admin.from('game_deposits').select('user_id', { count: 'exact', head: true }).eq('status', 'pending'),
+      admin.from('game_withdrawals').select('user_id', { count: 'exact', head: true }).eq('status', 'pending'),
+      admin.from('game_deposits').select('total_amount').eq('status', 'approved')
     ])
-    const revenue = (revenueRows || []).reduce((sum: number, row: { amount?: number }) => sum + Number(row.amount || 0), 0)
+    const revenue = (revenueRows || []).reduce((sum: number, row: { total_amount?: number }) => sum + Number(row.total_amount || 0), 0)
     return Response.json({ users: users || 0, pendingDeposits: deposits || 0, pendingWithdrawals: withdrawals || 0, revenue })
   } catch (error) { return errorResponse(error) }
 }
