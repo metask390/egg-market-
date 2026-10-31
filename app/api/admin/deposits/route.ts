@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await admin.from('game_deposits').select('*').eq('status', 'pending').order('created_at', { ascending: true })
     if (error) throw error
     const rows = data || []; const userIds = Array.from(new Set(rows.map(row => row.user_id).filter(Boolean))); const typeIds = Array.from(new Set(rows.map(row => row.chicken_type_id).filter(Boolean)))
-    const [{ data: users }, { data: types }] = await Promise.all([admin.from('game_users').select('user_id,email,username').in('user_id', userIds.length ? userIds : ['none']), admin.from('game_chicken_types').select('id,name,chicken_name,price,price_rs,egg_value').in('id', typeIds.length ? typeIds : ['none'])])
+    const [{ data: users }, { data: types }] = await Promise.all([admin.from('game_users').select('user_id').in('user_id', userIds.length ? userIds : ['none']), admin.from('game_chicken_types').select('id,name,chicken_name,price,price_rs,egg_value').in('id', typeIds.length ? typeIds : ['none'])])
     const userMap = Object.fromEntries((users || []).map(row => [row.user_id, row])); const typeMap = Object.fromEntries((types || []).map(row => [row.id, row]))
     return Response.json(rows.map(row => ({ ...row, user: userMap[row.user_id] || {}, chicken: typeMap[row.chicken_type_id] || {} })))
   } catch (error) { return errorResponse(error) }

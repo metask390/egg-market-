@@ -5,7 +5,6 @@ import { ArrowRight, Eye, EyeOff, LockKeyhole, LogIn, Mail, UserRoundPlus } from
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { PRIMARY_ADMIN_EMAIL } from '@/lib/adminConstants'
 
 type Mode = 'login' | 'register'
 
@@ -22,7 +21,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
         if (authError) throw new Error(`Signup failed: ${authError.message}`)
         if (!data.user) throw new Error('Signup succeeded but no user profile was returned.')
         const referredBy = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ref') : null
-        const profile = { user_id: data.user.id, wallet_balance: 0, email, username: `farmer_${data.user.id.slice(0, 8)}`, ...(referredBy ? { referred_by: referredBy } : {}) }
+        const profile = { user_id: data.user.id, wallet_balance: 0, total_invested: 0, direct_withdraw_limit: 0, referral_withdraw_limit: 0, is_blocked: false, ...(referredBy ? { referred_by: referredBy } : {}) }
         const { error: profileError } = await supabase.from('game_users').upsert(profile, { onConflict: 'user_id' })
         if (profileError) throw new Error(`Account profile could not be created: ${profileError.message}`)
         if (!data.session) {
@@ -33,7 +32,6 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       } else {
         const { data: loginData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
         if (authError) throw new Error(`Login failed: ${authError.message}`)
-        if (loginData.user?.email?.toLowerCase() === PRIMARY_ADMIN_EMAIL) await supabase.from('game_users').update({ role: 'admin' }).eq('user_id', loginData.user.id)
         router.push('/game/dashboard'); router.refresh()
       }
     } catch (err) { setError(err instanceof Error ? `${err.message} / براہ کرم دوبارہ کوشش کریں` : 'Something went wrong / کچھ غلط ہو گیا') } finally { setLoading(false) }

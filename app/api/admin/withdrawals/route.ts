@@ -4,7 +4,7 @@ import { errorResponse, requireAdmin } from '@/lib/adminAuth'
 export async function GET(request: NextRequest) {
   try {
     const { admin } = await requireAdmin(request); const { data, error } = await admin.from('game_withdrawals').select('*').eq('status', 'pending').order('created_at', { ascending: true }); if (error) throw error
-    const ids = Array.from(new Set((data || []).map(row => row.user_id).filter(Boolean))); const { data: users } = await admin.from('game_users').select('user_id,email,username,wallet_balance,direct_withdraw_limit,referral_withdraw_limit').in('user_id', ids.length ? ids : ['none']); const map = Object.fromEntries((users || []).map(row => [row.user_id, row]))
+    const ids = Array.from(new Set((data || []).map(row => row.user_id).filter(Boolean))); const { data: users } = await admin.from('game_users').select('user_id,wallet_balance,direct_withdraw_limit,referral_withdraw_limit').in('user_id', ids.length ? ids : ['none']); const map = Object.fromEntries((users || []).map(row => [row.user_id, row]))
     return Response.json((data || []).map(row => ({ ...row, user: map[row.user_id] || {} })))
   } catch (error) { return errorResponse(error) }
 }
