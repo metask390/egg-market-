@@ -1,44 +1,55 @@
 'use client'
 
 import { Canvas, useFrame } from '@react-three/fiber'
-import { ContactShadows, Environment, OrbitControls, PerspectiveCamera, Text } from '@react-three/drei'
-import { useEffect, useRef, useState } from 'react'
+import { ContactShadows, Environment, OrbitControls, PerspectiveCamera, Text, useGLTF } from '@react-three/drei'
+import { Component, Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
-type Egg = { id: number; price: 70 | 150; x: number; z: number }
-type ChickenProps = { index: number; startDelay: number; position: [number, number, number] }
+type ChickenProps = { position: [number, number, number]; reward: 70 | 150; phase: number }
 
-function FarmBackdrop() {
+function ChickenAsset({ position, reward, phase }: ChickenProps) {
+  const { scene } = useGLTF('/chicken.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+  const group = useRef<THREE.Group>(null)
+  const label = useRef<THREE.Group>(null)
+  useEffect(() => { model.traverse(object => { if (object instanceof THREE.Mesh) { object.castShadow = true; object.receiveShadow = true } }) }, [model])
+  useFrame(({ clock }) => {
+    const time = clock.getElapsedTime() + phase
+    if (group.current) { group.current.position.y = position[1] + Math.sin(time * 1.35) * .035; group.current.rotation.y = Math.sin(time * .3) * .045; group.current.rotation.z = Math.sin(time * .8) * .018 }
+    if (label.current) { const cycle = (time * .24) % 1; label.current.position.y = .42 + cycle * .32; const opacity = cycle < .7 ? 1 : 1 - (cycle - .7) / .3; label.current.traverse(object => { if (object instanceof THREE.Mesh) { const material = object.material as THREE.Material & { opacity?: number; transparent?: boolean }; material.transparent = true; material.opacity = opacity } }) }
+  })
+  return <group ref={group} position={position}><primitive object={model} scale={.95} rotation={[0, Math.PI, 0]} /><mesh position={[0, .22, .28]} scale={[.2, .28, .2]} castShadow><sphereGeometry args={[.45, 24, 18]} /><meshStandardMaterial color="#fffaf0" roughness={.34} /></mesh><group ref={label} position={[0, .42, .33]}><Text fontSize={.16} color={reward === 150 ? '#a87916' : '#398b54'} anchorX="center" anchorY="middle" outlineWidth={.01} outlineColor="#fff9e2">+{reward} Rs</Text><pointLight color="#ffd740" intensity={.8} distance={.75} /></group></group>
+}
+
+function FarmhouseAsset() {
+  const { scene } = useGLTF('/farmhouse.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+  useEffect(() => { model.traverse(object => { if (object instanceof THREE.Mesh) { object.castShadow = true; object.receiveShadow = true } }) }, [model])
+  return <primitive object={model} position={[2.35, .02, -2.1]} scale={1.45} />
+}
+
+function FarmhouseFallback() {
+  return <group position={[2.35, .3, -2.1]}><mesh castShadow><boxGeometry args={[2.2, 2.4, .55]} /><meshStandardMaterial color="#875433" roughness={.9} /></mesh><mesh position={[0, 1.65, 0]} rotation={[0, 0, Math.PI / 4]} castShadow><coneGeometry args={[1.7, 2, 4]} /><meshStandardMaterial color="#5d3829" roughness={.95} /></mesh><mesh position={[0, -.25, .3]}><boxGeometry args={[.5, 1.2, .05]} /><meshStandardMaterial color="#30221d" /></mesh></group>
+}
+
+class FarmhouseBoundary extends Component<{ children: React.ReactNode }, { failed: boolean }> {
+  static getDerivedStateFromError() { return { failed: true } }
+  state = { failed: false }
+  render() { return this.state.failed ? <FarmhouseFallback /> : this.props.children }
+}
+
+function FarmEnvironment() {
   return <>
-    <color attach="background" args={['#75c8ec']} />
-    <mesh position={[0, -1.7, -1.8]} receiveShadow><planeGeometry args={[20, 8]} /><meshStandardMaterial color="#89c96f" roughness={1} /></mesh>
-    <group position={[2.55, .05, -2.35]}><mesh castShadow><boxGeometry args={[2.15, 2.2, .48]} /><meshStandardMaterial color="#965d39" roughness={.9} /></mesh><mesh position={[0, 1.48, 0]} rotation={[0, 0, Math.PI / 4]} castShadow><coneGeometry args={[1.62, 1.8, 4]} /><meshStandardMaterial color="#6e412d" roughness={.95} /></mesh><mesh position={[0, -.18, .27]}><boxGeometry args={[.48, 1.05, .04]} /><meshStandardMaterial color="#392a24" /></mesh></group>
-    <group position={[0, -.72, -1.8]}>{[-2.65, -1.4, 1.55, 2.7].map(x => <mesh key={x} castShadow position={[x, 0, 0]}><cylinderGeometry args={[.065, .08, 1.8, 10]} /><meshStandardMaterial color="#875335" roughness={.95} /></mesh>)}{[-1.2, -.55].map(y => <mesh key={y} rotation={[0, 0, Math.PI / 2]} position={[0, y, 0]}><cylinderGeometry args={[.045, .045, 5.3, 8]} /><meshStandardMaterial color="#b47347" roughness={.95} /></mesh>)}</group>
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.48, .1]} receiveShadow><circleGeometry args={[3.3, 48]} /><meshStandardMaterial color="#a4d67d" roughness={1} /></mesh>
-    <group position={[-2.15, -1.14, .35]}><mesh castShadow><cylinderGeometry args={[.22, .27, .18, 24]} /><meshStandardMaterial color="#5fa5b2" roughness={.25} /></mesh><mesh position={[0, .22, 0]}><torusGeometry args={[.12, .025, 8, 20]} /><meshStandardMaterial color="#d8e9e7" /></mesh></group>
-    <group position={[2.0, -1.25, .55]}><mesh castShadow><boxGeometry args={[.5, .25, .35]} /><meshStandardMaterial color="#c47b32" roughness={.8} /></mesh><mesh position={[0, .2, 0]}><boxGeometry args={[.56, .06, .4]} /><meshStandardMaterial color="#f0c34d" roughness={.7} /></mesh></group>
+    <color attach="background" args={['#86cfee']} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -.03, 0]} receiveShadow><planeGeometry args={[14, 10]} /><meshStandardMaterial color="#795335" roughness={1} /></mesh>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .005, .35]}><circleGeometry args={[3.1, 48]} /><meshStandardMaterial color="#96643d" roughness={1} /></mesh>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .008, .35]}><ringGeometry args={[2.8, 3.1, 48]} /><meshStandardMaterial color="#b27a48" roughness={1} /></mesh>
+    <group position={[0, .75, -1.5]}>{[-2.8, -1.3, 1.3, 2.8].map(x => <mesh castShadow key={x} position={[x, 0, 0]}><cylinderGeometry args={[.06, .08, 1.6, 10]} /><meshStandardMaterial color="#68442d" roughness={.95} /></mesh>)}<mesh rotation={[0, 0, Math.PI / 2]} position={[0, .25, 0]}><cylinderGeometry args={[.04, .04, 5.6, 8]} /><meshStandardMaterial color="#a66e43" roughness={.95} /></mesh><mesh rotation={[0, 0, Math.PI / 2]} position={[0, -.2, 0]}><cylinderGeometry args={[.04, .04, 5.6, 8]} /><meshStandardMaterial color="#a66e43" roughness={.95} /></mesh></group>
+    <Suspense fallback={<FarmhouseFallback />}><FarmhouseBoundary><FarmhouseAsset /></FarmhouseBoundary></Suspense>
+    <mesh position={[-2.2, .14, .65]} castShadow><cylinderGeometry args={[.25, .28, .2, 24]} /><meshStandardMaterial color="#5aa4ac" roughness={.3} /></mesh><mesh position={[2.05, .16, .5]} castShadow><boxGeometry args={[.5, .26, .35]} /><meshStandardMaterial color="#c47a2f" roughness={.85} /></mesh>
   </>
 }
 
-function Nest({ position, eggs }: { position: [number, number, number]; eggs: Egg[] }) {
-  return <group position={position}><mesh rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow><torusGeometry args={[.67, .14, 14, 36]} /><meshStandardMaterial color="#81502f" roughness={.98} /></mesh><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .02, 0]}><circleGeometry args={[.59, 32]} /><meshStandardMaterial color="#c98d4d" roughness={1} /></mesh>{[-.42, -.2, .05, .3, .5].map((x, i) => <mesh key={i} position={[x, .16 + (i % 2) * .04, .08]} rotation={[0, 0, -.3 + i * .13]}><cylinderGeometry args={[.018, .018, .58, 6]} /><meshStandardMaterial color="#deb06d" roughness={1} /></mesh>)}{eggs.map(egg => <group key={egg.id} position={[egg.x, .32, egg.z]}><mesh castShadow scale={[.24, .34, .24]}><sphereGeometry args={[.45, 26, 20]} /><meshStandardMaterial color={egg.price === 150 ? '#ffe8bb' : '#fff6dd'} roughness={.32} /></mesh><Text position={[0, .38, .02]} fontSize={.14} color={egg.price === 150 ? '#a87512' : '#3a8a53'} anchorX="center" anchorY="middle" outlineWidth={.009} outlineColor="#fff9e9">{egg.price} PKR</Text></group>)}</group>
-}
-
-function FarmChicken({ index, startDelay, position }: ChickenProps) {
-  const [laying, setLaying] = useState(false); const [reward, setReward] = useState<70 | 150>(70); const [eggs, setEggs] = useState<Egg[]>([]); const started = useRef<number | null>(null); const bodyRef = useRef<THREE.Group>(null); const headRef = useRef<THREE.Group>(null); const leftWing = useRef<THREE.Group>(null); const rightWing = useRef<THREE.Group>(null); const eggRef = useRef<THREE.Mesh>(null); const rewardRef = useRef<THREE.Group>(null)
-  useEffect(() => { let interval: number; const lay = () => { started.current = performance.now(); const price: 70 | 150 = Math.random() > .55 ? 150 : 70; setReward(price); setLaying(true); try { new Audio('/sounds/cluck.mp3').play().catch(() => undefined) } catch { /* optional sound */ } window.setTimeout(() => { setEggs(current => [...current.slice(-3), { id: Date.now(), price, x: (Math.random() - .5) * .34, z: (Math.random() - .5) * .2 }]); setLaying(false) }, 2200) }; const initial = window.setTimeout(() => { lay(); interval = window.setInterval(lay, 10000) }, startDelay); return () => { window.clearTimeout(initial); if (interval) window.clearInterval(interval) } }, [startDelay])
-  useFrame(({ clock }) => { const t = clock.getElapsedTime() + index; const elapsed = started.current ? performance.now() - started.current : 0; const p = Math.min(elapsed / 2200, 1); const squat = laying ? Math.max(0, Math.sin(Math.min(elapsed / 580, 1) * Math.PI)) * .08 : 0; if (bodyRef.current) { bodyRef.current.position.y = -.12 + Math.sin(t * 1.7) * .025 - squat; bodyRef.current.position.x = Math.sin(t * .23) * .05; bodyRef.current.rotation.z = Math.sin(t * .6) * .025 }; if (headRef.current) { headRef.current.position.y = .72 + Math.sin(t * 2.1) * .038 - squat * .3; headRef.current.rotation.z = Math.sin(t * .9) * .04 }; const flap = laying ? Math.sin(Math.min(elapsed / 420, Math.PI * 2)) * .34 : Math.sin(t) * .018; if (leftWing.current && rightWing.current) { leftWing.current.rotation.z = -.2 - flap; rightWing.current.rotation.z = .2 + flap }; if (eggRef.current && rewardRef.current && started.current) { eggRef.current.position.y = -.42 - Math.min(p, .82) * .5; rewardRef.current.position.y = .18 + p * .45; rewardRef.current.traverse(o => { if (o instanceof THREE.Mesh) { const material = o.material as THREE.Material & { opacity?: number; transparent?: boolean }; material.transparent = true; material.opacity = Math.max(0, 1 - Math.max(0, p - .2) / .8) } }) } })
-  const feather = [[-.35, .12, .47], [-.21, .3, .5], [-.03, .36, .5], [.15, .28, .48], [.27, .1, .44]] as const
-  return <group position={position} rotation={[0, -Math.PI / 2, 0]}>
-    <group ref={bodyRef} scale={.57}><mesh castShadow position={[0, 0, .32]} scale={[1.2, .86, .9]}><sphereGeometry args={[.82, 40, 28]} /><meshStandardMaterial color="#fff8e9" roughness={.83} /></mesh>{[-.16, .3].map(x => <mesh key={x} position={[x, -.67, .34]} rotation={[0, 0, -.12]}><coneGeometry args={[.08, .36, 14]} /><meshStandardMaterial color="#eda32f" roughness={.68} /></mesh>)}<group ref={leftWing} position={[.08, .03, .82]}>{feather.map((p, i) => <mesh castShadow key={i} position={p} scale={[.75, 1, .2]} rotation={[0, .12, -.18]}><sphereGeometry args={[.25, 22, 14]} /><meshStandardMaterial color="#fffdf5" roughness={.88} /></mesh>)}</group><group ref={rightWing} position={[.08, .03, -.18]}>{feather.map((p, i) => <mesh castShadow key={i} position={[p[0], p[1], -p[2] + .32]} scale={[.75, 1, .2]} rotation={[0, -.12, .18]}><sphereGeometry args={[.25, 22, 14]} /><meshStandardMaterial color="#fffdf5" roughness={.88} /></mesh>)}</group><mesh position={[-.76, .2, .32]} rotation={[0, 0, -.78]}><coneGeometry args={[.18, .5, 14]} /><meshStandardMaterial color="#fffdf6" roughness={.86} /></mesh><mesh position={[-.89, .33, .32]} rotation={[0, 0, -1]}><coneGeometry args={[.13, .38, 14]} /><meshStandardMaterial color="#fffdf6" roughness={.86} /></mesh></group>
-    <group ref={headRef} position={[.18, .7, .32]} scale={.57}><mesh castShadow scale={[.92, .98, .92]}><sphereGeometry args={[.5, 36, 26]} /><meshStandardMaterial color="#fffdf7" roughness={.77} /></mesh>{[[-.16, .52, 0], [0, .6, 0], [.16, .52, 0]].map((p, i) => <mesh castShadow position={p as [number, number, number]} key={i} scale={[.9, 1.15, .75]}><sphereGeometry args={[i === 1 ? .14 : .12, 20, 14]} /><meshStandardMaterial color="#d94342" roughness={.7} /></mesh>)}<mesh position={[.48, -.15, 0]} rotation={[0, 0, -Math.PI / 2]}><coneGeometry args={[.12, .36, 18]} /><meshStandardMaterial color="#eda032" roughness={.6} /></mesh><mesh castShadow position={[.2, -.2, .02]} scale={[.65, .85, .42]}><sphereGeometry args={[.25, 20, 14]} /><meshStandardMaterial color="#dd4d45" roughness={.75} /></mesh>{[.36, -.36].map(z => <group key={z} position={[.2, .08, z]}><mesh><sphereGeometry args={[.105, 20, 16]} /><meshStandardMaterial color="#e9ae40" roughness={.55} /></mesh><mesh position={[0, 0, z > 0 ? .08 : -.08]}><sphereGeometry args={[.06, 14, 12]} /><meshStandardMaterial color="#17231d" /></mesh></group>)}</group>
-    <Nest position={[0, -.98, .3]} eggs={eggs} />
-    {laying && <><mesh ref={eggRef} castShadow position={[0, -.42, .67]} scale={[.22, .31, .22]}><sphereGeometry args={[.45, 28, 20]} /><meshStandardMaterial color="#fffdf5" roughness={.34} /></mesh><group ref={rewardRef} position={[0, .18, .78]}><Text fontSize={.16} color="#347b4c" anchorX="center" anchorY="middle" outlineWidth={.01} outlineColor="#fff7c0">+{reward} Rs</Text><pointLight color="#ffd741" intensity={1.3} distance={1} /></group></>}
-  </group>
-}
-
-function Chick() { const ref = useRef<THREE.Group>(null); useFrame(({ clock }) => { if (ref.current) ref.current.position.x = -1.65 + Math.sin(clock.getElapsedTime() * .35) * .38 }); return <group ref={ref} position={[-1.65, -1.04, .75]} scale={.35}><mesh castShadow scale={[1, .9, .8]}><sphereGeometry args={[.5, 22, 16]} /><meshStandardMaterial color="#f7d77e" roughness={.9} /></mesh><mesh position={[.2, .3, .03]}><sphereGeometry args={[.32, 20, 16]} /><meshStandardMaterial color="#ffe9a8" roughness={.9} /></mesh><mesh position={[.48, .28, .03]} rotation={[0, 0, -Math.PI / 2]}><coneGeometry args={[.09, .22, 12]} /><meshStandardMaterial color="#e99d2d" /></mesh></group> }
-
 export default function LayingChicken() {
-  return <Canvas shadows dpr={[1, 2]}><PerspectiveCamera makeDefault position={[0, .72, 8.6]} fov={42} /><ambientLight intensity={1.4} /><directionalLight position={[-3, 6, 5]} intensity={2.6} color="#fff0cf" castShadow shadow-mapSize={[1024, 1024]} /><Environment preset="sunset" /><FarmBackdrop /><FarmChicken index={0} startDelay={1800} position={[-1.15, 0, .2]} /><FarmChicken index={1} startDelay={5100} position={[0, .1, .28]} /><FarmChicken index={2} startDelay={8400} position={[1.12, -.02, .18]} /><Chick /><ContactShadows position={[0, -1.42, .2]} opacity={.3} scale={6} blur={2.8} far={4} /><OrbitControls enableZoom={false} enablePan={false} minPolarAngle={1.12} maxPolarAngle={1.55} target={[0, -.34, .05]} /></Canvas>
+  return <Canvas shadows dpr={[1, 2]}><PerspectiveCamera makeDefault position={[0, 2.15, 8.8]} fov={42} /><ambientLight intensity={.6} /><directionalLight castShadow position={[5, 10, 5]} intensity={2.5} color="#ffe9c4" shadow-mapSize={[1024, 1024]} /><Environment preset="sunset" /><FarmEnvironment /><Suspense fallback={null}><ChickenAsset position={[-2, .18, .25]} reward={70} phase={0} /><ChickenAsset position={[0, .18, .9]} reward={150} phase={2.7} /><ChickenAsset position={[2, .18, .25]} reward={70} phase={5.2} /></Suspense><ContactShadows position={[0, .02, .3]} opacity={.35} scale={8} blur={2.6} far={4.5} /><OrbitControls enableZoom={false} enablePan={false} minPolarAngle={1.1} maxPolarAngle={1.5} target={[0, .2, 0]} /></Canvas>
 }
